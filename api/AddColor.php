@@ -7,9 +7,20 @@
 	$color = $inData["color"];
 	$userId = $inData["userId"];
 
-	// TODO: insert the color into the database (see the "Backend logic"
-	// commit for the full implementation).
-	returnWithError( "Not implemented" );
+	$conn = new mysqli($db_host, $db_user, $db_pass, $db_name);
+	if ($conn->connect_error)
+	{
+		returnWithError( $conn->connect_error );
+	}
+	else
+	{
+		$stmt = $conn->prepare("INSERT into Colors (UserId,Name) VALUES(?,?)");
+		$stmt->bind_param("ss", $userId, $color);
+		$stmt->execute();
+		$stmt->close();
+		$conn->close();
+		returnWithError("");
+	}
 
 	function getRequestInfo()
 	{

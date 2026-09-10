@@ -8,9 +8,30 @@
 	$firstName = "";
 	$lastName = "";
 
-	// TODO: connect to the database and authenticate the user (see the
-	// "Backend logic" commit for the full implementation).
-	returnWithError( "Not implemented" );
+	$conn = new mysqli($db_host, $db_user, $db_pass, $db_name);
+	if( $conn->connect_error )
+	{
+		returnWithError( $conn->connect_error );
+	}
+	else
+	{
+		$stmt = $conn->prepare("SELECT ID,FirstName,LastName FROM Users WHERE Login=? AND Password =?");
+		$stmt->bind_param("ss", $inData["login"], $inData["password"]);
+		$stmt->execute();
+		$result = $stmt->get_result();
+
+		if( $row = $result->fetch_assoc()  )
+		{
+			returnWithInfo( $row['FirstName'], $row['LastName'], $row['ID'] );
+		}
+		else
+		{
+			returnWithError("No Records Found");
+		}
+
+		$stmt->close();
+		$conn->close();
+	}
 
 	function getRequestInfo()
 	{

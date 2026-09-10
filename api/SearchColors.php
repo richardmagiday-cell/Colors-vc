@@ -4,9 +4,45 @@
 
 	$inData = getRequestInfo();
 
-	// TODO: search the database for matching colors (see the "Backend logic"
-	// commit for the full implementation).
-	returnWithError( "Not implemented" );
+	$searchResults = "";
+	$searchCount = 0;
+
+	$conn = new mysqli($db_host, $db_user, $db_pass, $db_name);
+	if ($conn->connect_error)
+	{
+		returnWithError( $conn->connect_error );
+	}
+	else
+	{
+		$stmt = $conn->prepare("select Name from Colors where Name like ? and UserID=?");
+		$colorName = "%" . $inData["search"] . "%";
+		$stmt->bind_param("ss", $colorName, $inData["userId"]);
+		$stmt->execute();
+
+		$result = $stmt->get_result();
+
+		while($row = $result->fetch_assoc())
+		{
+			if( $searchCount > 0 )
+			{
+				$searchResults .= ",";
+			}
+			$searchCount++;
+			$searchResults .= '"' . $row["Name"] . '"';
+		}
+
+		if( $searchCount == 0 )
+		{
+			returnWithError( "No Records Found" );
+		}
+		else
+		{
+			returnWithInfo( $searchResults );
+		}
+
+		$stmt->close();
+		$conn->close();
+	}
 
 	function getRequestInfo()
 	{
