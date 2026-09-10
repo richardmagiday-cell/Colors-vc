@@ -1,0 +1,9 @@
+# Server-specific configuration / secrets -- never commit real DB credentials
+api/db_config.php
+
+# OS / editor junk
+.DS_Store
+Thumbs.db
+*.log
+.vscode/
+.idea/
