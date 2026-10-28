@@ -1,0 +1,108 @@
+@startuml activity
+' Activity Diagram -- COLORS web application (COP 4331 LAMP Lab)
+' Models the full session: log in, use the colors page, log out.
+' Swimlanes follow the real components: user, browser (code.js), PHP API, MySQL.
+skinparam activity {
+  BackgroundColor #F5F9FF
+  BorderColor #2F5597
+}
+skinparam swimlane {
+  BorderColor #2F5597
+  TitleFontStyle bold
+}
+
+|User|
+start
+:Open index.html;
+repeat
+  :Enter username and password;
+  :Click "Do It";
+  |Browser (code.js)|
+  :doLogin(): hash password with md5();
+  :POST {login, password} to api/Login.php;
+  |PHP API|
+  :Decode JSON request;
+  if (DB connection OK?) then (yes)
+    |MySQL|
+    :SELECT ID, FirstName, LastName FROM Users
+    WHERE Login = ? AND Password = ?;
+    |PHP API|
+    if (Row found?) then (yes)
+      :Return {id, firstName, lastName, error:""};
+    else (no)
+      :Return {id:0, ..., error:"No Records Found"};
+    endif
+  else (no)
+    :Return {id:0, ..., error:<connect error>};
+  endif
+  |Browser (code.js)|
+  :Parse JSON response;
+  backward:Show "User/Password combination incorrect";
+repeat while (id < 1?) is (yes) not (no)
+
+:saveCookie(): firstName, lastName, userId
+(expires in 20 minutes);
+:Redirect to color.html;
+:readCookie() on DOMContentLoaded;
+if (userId found in cookie?) then (no)
+  :Redirect to index.html;
+  stop
+else (yes)
+endif
+
+repeat
+  |User|
+  :Choose an action;
+  if (Action?) then (Search Color)
+    :Enter search text;
+    :Click "Search Color";
+    |Browser (code.js)|
+    :searchColor(): POST {search, userId}
+    to api/SearchColors.php;
+    |PHP API|
+    |MySQL|
+    :SELECT Name FROM Colors
+    WHERE Name LIKE %search% AND UserID = ?;
+    |PHP API|
+    if (Matches found?) then (yes)
+      :Return {results:[names], error:""};
+      |Browser (code.js)|
+      :Show "Color(s) has been retrieved";
+      :Display matching colors in #colorList;
+    else (no)
+      |PHP API|
+      :Return {id:0, ..., error:"No Records Found"};
+      |Browser (code.js)|
+      :Show "Color(s) has been retrieved";
+      note right
+        Response has no "results" array, so the
+        loop throws and #colorList is not updated.
+      end note
+    endif
+  elseif () then (Add Color)
+    |User|
+    :Enter color name;
+    :Click "Add Color";
+    |Browser (code.js)|
+    :addColor(): POST {color, userId}
+    to api/AddColor.php;
+    |PHP API|
+    |MySQL|
+    :INSERT INTO Colors (UserId, Name)
+    VALUES (?, ?);
+    |PHP API|
+    :Return {error:""};
+    |Browser (code.js)|
+    :Show "Color has been added";
+  else (Log Out)
+    |User|
+    :Click "Log Out";
+    |Browser (code.js)|
+    :doLogout(): reset userId and names,
+    expire the cookie;
+    :Redirect to index.html;
+    stop
+  endif
+repeat while (Keep working?) is (yes)
+stop
+@enduml

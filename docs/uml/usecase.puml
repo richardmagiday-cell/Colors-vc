@@ -1,0 +1,64 @@
+@startuml usecase
+' Use Case Diagram -- COLORS web application (COP 4331 LAMP Lab)
+' Derived from public/index.html, public/color.html, public/js/code.js and api/*.php
+left to right direction
+skinparam packageStyle rectangle
+skinparam actorStyle awesome
+skinparam usecase {
+  BackgroundColor #F5F9FF
+  BorderColor #2F5597
+}
+
+actor "User" as user
+actor "MySQL Database\n(COP4331)" as db <<system>>
+
+rectangle "COLORS Web Application" {
+  usecase "Log In" as UC_Login
+  usecase "Hash Password\n(client-side MD5)" as UC_Hash
+  usecase "Display Login Error" as UC_LoginErr
+  usecase "Access Colors Page" as UC_Access
+  usecase "Validate Session Cookie" as UC_Cookie
+  usecase "Search Colors" as UC_Search
+  usecase "Add Color" as UC_Add
+  usecase "Log Out" as UC_Logout
+}
+
+user --> UC_Login
+user --> UC_Access
+user --> UC_Search
+user --> UC_Add
+user --> UC_Logout
+
+UC_Login .> UC_Hash : <<include>>
+UC_LoginErr .> UC_Login : <<extend>>\n[id < 1]
+UC_Access .> UC_Cookie : <<include>>
+
+UC_Login --> db
+UC_Search --> db
+UC_Add --> db
+
+note right of UC_Login
+  POST api/Login.php {login, password(md5)}
+  On success a 20-minute cookie
+  (firstName, lastName, userId) is saved
+  and the browser goes to color.html.
+end note
+
+note right of UC_Search
+  POST api/SearchColors.php {search, userId}
+  Substring match (LIKE %search%) on the
+  logged-in user's colors only.
+end note
+
+note right of UC_Add
+  POST api/AddColor.php {color, userId}
+  Inserts a row into the Colors table.
+end note
+
+note bottom of UC_Cookie
+  readCookie() runs when color.html loads;
+  if no valid userId, redirect to index.html.
+end note
+
+note "There is no Register use case: accounts are\ncreated directly in the Users table." as N1
+@enduml

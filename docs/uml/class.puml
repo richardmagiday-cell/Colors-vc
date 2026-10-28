@@ -1,0 +1,171 @@
+@startuml class
+' Class Diagram -- COLORS web application (COP 4331 LAMP Lab)
+' The app has no OOP classes, so each source file / table / JSON message is
+' modeled as a classifier with a stereotype describing what it really is.
+skinparam classAttributeIconSize 0
+skinparam class {
+  BackgroundColor #F5F9FF
+  BorderColor #2F5597
+}
+hide empty members
+
+package "Client (public/)" {
+  class "index.html" as IndexPage <<page>> {
+    loginName : input
+    loginPassword : input
+    loginButton : button
+    loginResult : span
+  }
+
+  class "color.html" as ColorPage <<page>> {
+    userName : span
+    logoutButton : button
+    searchText : input
+    searchColorButton : button
+    colorSearchResult : span
+    colorList : p
+    colorText : input
+    addColorButton : button
+    colorAddResult : span
+  }
+
+  class "code.js" as CodeJS <<script>> {
+    + urlBase : string = "http://cop4331magiday.lol/api"
+    + extension : string = "php"
+    + userId : int = 0
+    + firstName : string = ""
+    + lastName : string = ""
+    --
+    + doLogin() : void
+    + saveCookie() : void
+    + readCookie() : void
+    + doLogout() : void
+    + addColor() : void
+    + searchColor() : void
+  }
+
+  class "md5.js" as MD5 <<library>> {
+    + md5(string) : string
+  }
+
+  class SessionCookie <<cookie>> {
+    firstName : string
+    lastName : string
+    userId : int
+    expires : 20 minutes
+  }
+}
+
+package "Server (api/)" {
+  class "Login.php" as LoginAPI <<endpoint>> {
+    getRequestInfo() : array
+    sendResultInfoAsJson(obj) : void
+    returnWithError(err) : void
+    returnWithInfo(firstName, lastName, id) : void
+  }
+
+  class "AddColor.php" as AddColorAPI <<endpoint>> {
+    getRequestInfo() : array
+    sendResultInfoAsJson(obj) : void
+    returnWithError(err) : void
+  }
+
+  class "SearchColors.php" as SearchAPI <<endpoint>> {
+    getRequestInfo() : array
+    sendResultInfoAsJson(obj) : void
+    returnWithError(err) : void
+    returnWithInfo(searchResults) : void
+  }
+
+  class "db_config.php" as DBConfig <<config>> {
+    $db_host : string
+    $db_user : string
+    $db_pass : string
+    $db_name : string = "COP4331"
+  }
+}
+
+package "JSON messages" {
+  class LoginRequest <<JSON>> {
+    login : string
+    password : string <<md5>>
+  }
+  class LoginResponse <<JSON>> {
+    id : int
+    firstName : string
+    lastName : string
+    error : string
+  }
+  class AddColorRequest <<JSON>> {
+    color : string
+    userId : int
+  }
+  class SearchRequest <<JSON>> {
+    search : string
+    userId : int
+  }
+  class SearchResponse <<JSON>> {
+    results : string[]
+    error : string
+  }
+  class ErrorResponse <<JSON>> {
+    error : string
+  }
+}
+
+package "Database (MySQL COP4331)" {
+  class Users <<table>> {
+    + ID : INT <<PK, auto_increment>>
+    {field} FirstName : VARCHAR(50)
+    {field} LastName : VARCHAR(50)
+    {field} Login : VARCHAR(50)
+    {field} Password : VARCHAR(50) <<md5 hash>>
+  }
+  class Colors <<table>> {
+    + ID : INT <<PK, auto_increment>>
+    {field} Name : VARCHAR(50)
+    UserID : INT
+  }
+}
+
+' Pages load scripts
+IndexPage ..> CodeJS : <<loads>>
+IndexPage ..> MD5 : <<loads>>
+ColorPage ..> CodeJS : <<loads>>
+
+' Script behavior
+CodeJS ..> MD5 : uses
+CodeJS ..> SessionCookie : saves / reads / expires
+CodeJS ..> IndexPage : redirects
+CodeJS ..> ColorPage : redirects
+
+' XHR POST calls
+CodeJS ..> LoginAPI : POST
+CodeJS ..> AddColorAPI : POST
+CodeJS ..> SearchAPI : POST
+
+' Messages exchanged
+LoginAPI ..> LoginRequest : receives
+LoginAPI ..> LoginResponse : returns
+AddColorAPI ..> AddColorRequest : receives
+AddColorAPI ..> ErrorResponse : returns
+SearchAPI ..> SearchRequest : receives
+SearchAPI ..> SearchResponse : returns
+SearchAPI ..> LoginResponse : returns on\n"No Records Found"
+
+' Configuration and data access
+LoginAPI ..> DBConfig : require_once
+AddColorAPI ..> DBConfig : require_once
+SearchAPI ..> DBConfig : require_once
+LoginAPI ..> Users : SELECT
+AddColorAPI ..> Colors : INSERT
+SearchAPI ..> Colors : SELECT ... LIKE
+
+Users "1" -- "0..*" Colors : owns >
+
+note bottom of Colors
+  UserID refers to Users.ID. The schema
+  declares no FOREIGN KEY constraint;
+  the link is enforced only by the queries.
+end note
+@enduml
