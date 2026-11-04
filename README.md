@@ -1,5 +1,7 @@
 # Colors (LAMP Stack Demo)
 
+[![CI](https://github.com/richardmagiday-cell/Colors-vc/actions/workflows/ci.yml/badge.svg)](https://github.com/richardmagiday-cell/Colors-vc/actions/workflows/ci.yml)
+
 A small full-stack web app built for the COP 4331 "COLORS Lab." A user logs
 in, then can save colors to a personal list and search that list back. It
 was built to practice a classic LAMP stack (Linux, Apache, MySQL, PHP) with
@@ -38,7 +40,8 @@ a server-side session.
 ## Project structure
 
 ```
-colors-lamp/
+Colors-vc/
+  .github/workflows/ci.yml  GitHub Actions: lint, unit tests, integration tests
   api/                      PHP API (backend)
     Login.php
     AddColor.php
@@ -51,6 +54,13 @@ colors-lamp/
     js/code.js                app logic, calls the API
     js/md5.js                 third-party MD5 library
     images/background.png
+  tests/
+    unit/code.test.js         front-end unit tests (Jest + jsdom)
+    integration/api.test.js   API integration tests (Jest -> PHP -> MySQL)
+    integration/schema.sql    test database schema and seed data
+  docs/uml/                 use case, activity, and class diagrams
+  package.json              lint/test tooling only (Node does not run the app)
+  eslint.config.mjs, .stylelintrc.json, .htmlhintrc   linter configs
   .gitignore
   README.md
   LICENSE.md
@@ -64,9 +74,10 @@ The API expects a `COP4331` MySQL database with two tables:
   `LastName`
 - `Colors` -- columns `UserId`, `Name`
 
-Setting up and seeding this database is outside the scope of this repo;
-ask your course staff for the schema/seed script used in the lab if you
-need to stand up a fresh database.
+[`tests/integration/schema.sql`](tests/integration/schema.sql) creates
+both tables and seeds a test user (`testuser` / `testpass`) with a few
+colors. CI uses it for the integration tests, and you can load it into
+your own MySQL server with `mysql -u <user> -p < tests/integration/schema.sql`.
 
 ## Setup instructions
 
@@ -97,6 +108,29 @@ need to stand up a fresh database.
 - On success you're redirected to `public/color.html`, where you can add
   and search colors.
 
+## Linting, tests, and CI
+
+Node.js is used only to install and run the linters and tests -- the app
+itself runs on LAMP. After `npm install`:
+
+| Command | What it does |
+|---|---|
+| `npm run lint` | HTMLHint, Stylelint, and ESLint over `public/` (and ESLint over `tests/`) |
+| `npm test` | Front-end unit tests: loads the real `code.js` into jsdom with a fake `XMLHttpRequest` |
+| `npm run test:integration` | Sends real HTTP requests to the PHP API; needs PHP, MySQL, and `API_BASE` set |
+
+The integration tests need a running API, so they are normally run by CI
+rather than locally. GitHub Actions ([`ci.yml`](.github/workflows/ci.yml))
+runs on every push and pull request with three jobs:
+
+1. **Lint** -- every linter runs even if an earlier one fails, so one run
+   reports every problem.
+2. **Unit tests** -- `npm run test:unit`.
+3. **Integration tests** -- starts a MySQL 8 service container, loads
+   `schema.sql`, writes a throwaway `db_config.php`, serves the repo with
+   PHP's built-in server, and runs `npm run test:integration` against
+   `http://127.0.0.1:8000/api`.
+
 ## Assumptions, limitations, and AI usage
 
 - **Assumptions:** a MySQL database with the schema above already exists
@@ -114,7 +148,10 @@ need to stand up a fresh database.
   into a gitignored config file were done with the assistance of an AI
   coding assistant (Claude Code), per course policy on disclosing AI use.
   The application code itself (HTML/CSS/JS/PHP) was written for the
-  COP 4331 COLORS Lab assignment.
+  COP 4331 COLORS Lab assignment. The CI work was also done with Claude
+  Code: the GitHub Actions workflow, linter configs, and lint fixes
+  (Assignment 4), and the Jest unit/integration tests, test schema, and
+  the `validateColor`/`formatColorList` changes to `code.js` (Assignment 5).
 
 ## License
 
