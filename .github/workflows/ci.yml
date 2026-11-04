@@ -1,0 +1,126 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  lint:
+    name: Lint HTML, CSS, and JavaScript
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      # Node.js is used only to install and run the linters and tests (the app itself runs on LAMP)
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install tools
+        run: npm ci
+
+      # Each lint step runs even if an earlier one fails, so one run reports every problem
+      - name: Lint HTML (HTMLHint)
+        run: npm run lint:html
+
+      - name: Lint CSS (Stylelint)
+        if: success() || failure()
+        run: npm run lint:css
+
+      - name: Lint JavaScript (ESLint)
+        if: success() || failure()
+        run: npm run lint:js
+
+  unit-tests:
+    name: Front-end unit tests (Jest + jsdom)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install tools
+        run: npm ci
+
+      - name: Run unit tests
+        run: npm run test:unit
+
+  integration-tests:
+    name: API integration tests (PHP + MySQL)
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+
+    env:
+      API_BASE: http://127.0.0.1:8000/api
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install tools
+        run: npm ci
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          extensions: mysqli
+
+      - name: Create and seed the test database
+        run: mysql -h 127.0.0.1 -P 3306 -u root -proot < tests/integration/schema.sql
+
+      # Throwaway credentials for the CI database only; db_config.php stays out of git
+      - name: Write API database config
+        run: |
+          cat > api/db_config.php <<'PHP'
+          <?php
+          $db_host = "127.0.0.1";
+          $db_user = "root";
+          $db_pass = "root";
+          $db_name = "COP4331";
+          PHP
+
+      # PHP's built-in web server serves the real api/*.php files
+      - name: Start PHP server
+        run: |
+          php -S 127.0.0.1:8000 -t . > php-server.log 2>&1 &
+          for i in $(seq 1 20); do
+            curl -s -o /dev/null http://127.0.0.1:8000/ && exit 0
+            sleep 0.5
+          done
+          echo "PHP server did not start" && cat php-server.log && exit 1
+
+      - name: Run integration tests
+        run: npm run test:integration
+
+      - name: Show PHP server log
+        if: failure()
+        run: cat php-server.log

@@ -109,10 +109,38 @@ function doLogout()
 	window.location.href = "index.html";
 }
 
+// Returns an error message for an invalid color name, or "" if it is valid
+function validateColor( color )
+{
+	if( typeof color !== "string" || color.trim().length === 0 )
+	{
+		return "Please enter a color name";
+	}
+	return "";
+}
+
+// Joins search results into the HTML shown in the color list. The API omits
+// "results" when nothing matches, so anything that is not an array yields "".
+function formatColorList( results )
+{
+	if( !Array.isArray( results ) )
+	{
+		return "";
+	}
+	return results.join( "<br />\r\n" );
+}
+
 function addColor()
 {
-	const newColor = document.getElementById("colorText").value;
+	const newColor = document.getElementById("colorText").value.trim();
 	document.getElementById("colorAddResult").innerHTML = "";
+
+	const validationError = validateColor( newColor );
+	if( validationError !== "" )
+	{
+		document.getElementById("colorAddResult").innerHTML = validationError;
+		return;
+	}
 
 	const tmp = {color:newColor,userId:userId};
 	const jsonPayload = JSON.stringify( tmp );
@@ -145,8 +173,6 @@ function searchColor()
 	const srch = document.getElementById("searchText").value;
 	document.getElementById("colorSearchResult").innerHTML = "";
 
-	let colorList = "";
-
 	const tmp = {search:srch,userId:userId};
 	const jsonPayload = JSON.stringify( tmp );
 
@@ -164,16 +190,7 @@ function searchColor()
 				document.getElementById("colorSearchResult").innerHTML = "Color(s) has been retrieved";
 				const jsonObject = JSON.parse( xhr.responseText );
 
-				for( let i=0; i<jsonObject.results.length; i++ )
-				{
-					colorList += jsonObject.results[i];
-					if( i < jsonObject.results.length - 1 )
-					{
-						colorList += "<br />\r\n";
-					}
-				}
-
-				document.getElementsByTagName("p")[0].innerHTML = colorList;
+				document.getElementsByTagName("p")[0].innerHTML = formatColorList( jsonObject.results );
 			}
 		};
 		xhr.send(jsonPayload);
